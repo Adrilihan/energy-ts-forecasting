@@ -1,0 +1,946 @@
+---
+title: "Trabalho de grupo de ST: Previsão do consumo energético de Aveiro"
+author: "Pedro Caio, Pedro Mano"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r "setup", include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Ler os dados
+
+```{r "Reading the data"}
+library(readxl)
+
+raw_data = read_excel("consumos_horario_codigo_postal.xlsx")
+
+head(raw_data)
+```
+
+Aparenta que os dados não estão organizados e necessitam de algum tratamento.
+
+# Tratamento e análise exploratoria do conjunto de dados
+
+## Os nossos dados na sua totalidade
+
+```{r "Data ploting"}
+# Load necessary libraries
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+
+# Create a new dataframe with the important columns
+data = raw_data[,-(2:4)]
+
+# Convert the DateTime to POSIXct
+data$`Date/Time` <- ymd_hms(raw_data$`Date/Time`)
+
+# Order the data by Date/Time
+data <- data %>% arrange(`Date/Time`)
+
+# Plotting
+ggplot(data, aes(x = `Date/Time`, y = `Active Energy (kWh)`)) +
+  geom_line() + # This creates a line plot
+  labs(title = "Active Energy Consumption Over Time in Aveiro",
+       x = "Date and Hour",
+       y = "Active Energy (kWh)") +
+  theme_minimal()
+```
+
+Aparenta haver um maior consumo no inicio do ano e depois uma redução nos meses 
+do Verão, possivelmente explicados com diferenças de temperatura e necessidade 
+de aquecimento.
+
+## Dados mensais
+
+```{r}
+ggplot(data, aes(x = `Date/Time`, y = `Active Energy (kWh)`)) +
+  geom_line() +
+  labs(title = "Monthly Active Energy Consumption in Aveiro (April 2023)", 
+       x = "Date and Hour", y = "Active Energy (kWh)") + 
+  theme_minimal() +  
+  xlim(as.POSIXct("2023-04-01 00:00:00"), as.POSIXct("2023-05-01 00:00:00"))
+```
+
+Analisando o plot de consumo de energia mensal, conseguimos identificar o que 
+parece tratar-se de sazonalidade, expressa em dois grupos distintos. 
+Para melhor estudarmos este comportamento, passamos agora para a análise dos 
+dados ao nível semanal.
+
+## Dados Semanais
+
+```{r}
+ggplot(data, aes(x = `Date/Time`, y = `Active Energy (kWh)`)) +
+  geom_line() +
+  labs(title = "Weekly Active Energy Consumption in Aveiro [10 a 17, Abril, 2023]",
+       x = "Date and Hour", y = "Active Energy (kWh)") + 
+  theme_minimal() +  
+  xlim(as.POSIXct("2023-04-10 00:00:00"), as.POSIXct("2023-04-17 00:00:00"))
+```
+
+Como tínhamos identificado no plot mensal, voltamos a identificar um 
+comportamento sazonal ao nível semanal. Tendo escolhido uma semana que começa 
+numa segunda-feira, conseguimos concluir que este comportamento se dividi em 
+dois grupos: os dias de trabalho e o fim-de-semana.
+
+Especificamente, verificamos que os dias da semana apresentam valores mais 
+elevados de consumo energético quando comparados com o fim-de-semana. Mesmo 
+assim, conseguimos identficar o que parece ser uma componente sazonal ao nível 
+diário.
+
+## Dados Diários
+
+```{r}
+ggplot(data, aes(x = `Date/Time`, y = `Active Energy (kWh)`)) +
+  geom_line() +
+  labs(title = "Daily Active Energy Consumption Over Time in Aveiro [01-04-2023]", 
+       x = "Date and Hour", y = "Active Energy (kWh)") + 
+  theme_minimal() +
+  xlim(as.POSIXct("2023-04-01 00:00:00"), as.POSIXct("2023-04-02 00:00:00"))
+```
+
+Conseguimos identificar neste gráfico um comportamento sazonal, com valores 
+mínimos durante a madrugada e picos às horas de almoço e jantar.
+
+```{r "Histogram ploting"}
+# Plotting the histogram
+ggplot(data, aes(x = `Active Energy (kWh)`)) +
+  geom_histogram(binwidth = 500, fill = "blue", color = "black") + 
+  labs(title = "Histogram of Active Energy Consumption in Aveiro",
+       x = "Active Energy (kWh)", y = "Frequency") +
+  theme_minimal()
+```
+
+A distribuição dos dados assemelha-se a uma mistura de duas normais.
+
+Vendo os gráficos da $\mathrm{ACF}$ e $\mathrm{PACF}$
+
+```{r "ACF and PACF plots"}
+# Load necessary libraries
+library(forecast)
+
+# ACF and PACF plots
+acf(data$`Active Energy (kWh)`, main="ACF for Active Energy")
+pacf(data$`Active Energy (kWh)`, main="PACF for Active Energy")
+```
+
+É possível ver pelo o gráfico da $\mathrm{ACF}$ que existe uma sazonalidade
+entre cada dia. Realizando uma decomposição em tendência e sazonalidade.
+
+```{r "Seasonal and trend decomposition"}
+# Convert the data to a ts object with hourly frequency
+data_ts <- ts(data$`Active Energy (kWh)`, frequency = 24)
+
+# Seasonal Decomposition using STL
+decomp <- stl(data_ts, s.window = "periodic")
+
+# Plot the decomposed components
+plot(decomp)
+```
+
+É possível verificar uma densidade considerável ao nível da sazonalidade, pelo 
+que não conseguimos tirar conclusões desta primeira decomposição.
+
+```{r "Monthly STD"}
+#Extract one week of values
+one_month <- data %>% filter(`Date/Time` >= as.POSIXct("2023-04-01 00:00:00") 
+                            & `Date/Time` < as.POSIXct("2023-05-01 00:00:00"))
+
+# Convert the data to a ts object with hourly frequency
+data_ts_month <- ts(one_month$`Active Energy (kWh)`, frequency = 24*7)
+
+# Seasonal Decomposition using STL
+decomp_month <- stl(data_ts_month, s.window = "periodic")
+
+# Plot the decomposed components
+plot(decomp_month)
+```
+
+Analisando a figura, conseguimos verificar que parece existir uma sazonalidade 
+semanal dos nossos dados, de novo expressando uma divisão em dias de trabalho e 
+fins-de-semana.
+
+
+```{r "Weekly STD"}
+#Extract one week of values
+one_week <- data %>% filter(`Date/Time` >= as.POSIXct("2023-04-10 00:00:00") 
+                            & `Date/Time` < as.POSIXct("2023-04-17 00:00:00"))
+
+# Convert the data to a ts object with hourly frequency
+data_ts_weekly <- ts(one_week$`Active Energy (kWh)`, frequency = 24)
+
+# Seasonal Decomposition using STL
+decomp_week <- stl(data_ts_weekly, s.window = "periodic")
+
+# Plot the decomposed components
+plot(decomp_week)
+```
+
+A partir da figura anterior, conseguimos concluir que existe ainda uma segunda 
+sazonalidade dos nossos dados num nível diário, correspondendo à natureza que 
+previamente apontámos. De notar que, se tívessemos dados correspondentes a um 
+ano inteiro, seríamos capazes de possivelmente verificar uma terceira 
+sazonalidade dos dados em relação às estações do ano, com aumento do consumo 
+energético nos meses de inverno.
+
+# Classificação de dias de trabalho e fins-de-semana
+
+Vamos agora definir uma variável dummy para definir se uma dada leitura foi 
+retirada num dia de trabalho ou num fim-de-semana.
+
+```{r "Dummy"}
+# Loading necessary libraries
+library(tibble)
+
+weekday_list <- weekdays(data$`Date/Time`)
+week_list <- vector()
+for (c in weekday_list)
+  if (c == "Saturday"|| c=="Sunday") {week_list <- append(week_list, 0)
+  } else {week_list <- append(week_list, 1)}
+
+data <- data %>% add_column('Weekday?' = week_list)
+
+head(data)
+```
+
+# Aplicação de métodos
+
+Para aplicar e comparar os métodos decidiu-se dividir os dados em uma razão
+80/20
+
+```{r "Train and test sets"}
+# Seed setup
+set.seed(123)
+
+# Splitting the data into training and testing sets
+train_end <- floor(length(data_ts) * 0.8)
+train_set <- window(data_ts, end = c(1, train_end))
+test_set <- window(data_ts, start = c(1, train_end + 1))
+```
+
+## SARIMA + GARCH
+ 
+Pretende-se aplicar um modelo $\mathrm{GARCH}$ ao conjunto de dados, devido
+os dados conterem sazonalidade precisaremos de primeiro encontrar o modelo 
+$\mathrm{SARIMA}$ que se ajusta de melhor forma aos dados e de seguida
+aplicar o modelo $\mathrm{GARCH}$ aos seus respetivos resíduos, para 
+encontrar o modelo $\mathrm{SARIMA}$ que mais se ajusta podemos utilizar a
+função `auto.arima` ou analisar os gráficos do $\mathrm{ACF}$ e 
+$\mathrm{PACF}$.
+ 
+### Auto.arima
+
+Começando com a função `auto.arima`:
+ 
+```{r "auto arima SARIMA fit"}
+sarima_fit = auto.arima(train_set, trace = TRUE)
+sarima_fit
+```
+ 
+Obtemos então do auto_arima que o melhor modelo SARIMA a aplicar-se aos nossos 
+dados de treino seria um $\mathrm{ARIMA}(5,0,1)(2,1,0)[24]$.
+
+Observando os resíduos 
+
+```{r}
+acf(sarima_fit$residuals)
+```
+
+Observa-se que são correlacionados, no entado este resultado é de esperar 
+dado que irá-se aplicar ainda do modelo $\mathrm{GARCH}$ aos resíduos.
+
+Antes de passar para a aplicação do modelo $\mathrm{GARCH}$ irá se 
+verificar a existência de efeitos $\mathrm{ARCH}$ através de um teste
+estatístico.
+
+```{r "Statistical test for ARCH component"}
+library(FinTS)
+
+# Getting the SARIMA model residuals 
+sarima_residuals <- sarima_fit$residuals
+arch_test_results <- ArchTest(sarima_residuals)
+
+arch_test_results
+```
+
+Realizado o teste estatístico concluí-se que o modelo $\mathrm{GARCH}$ deve
+ser implementado.
+ 
+Tendo os resíduos do $\mathrm{SARIMA}$, aplicamos em seguida o 
+$\mathrm{GARCH}$:
+ 
+```{r "GARCH fitting on auto arima SARIMA model"}
+# Load necessary libraries
+library(rugarch)
+ 
+# Specify a GARCH(1, 1) model
+spec <- ugarchspec(variance.model = list(model = "sGARCH", 
+                                         garchOrder = c(1, 1)),
+                   mean.model = list(armaOrder = c(0, 0)),
+                   distribution.model = "norm")
+ 
+# Fit the GARCH model to the SARIMA residuals
+garch_fit <- ugarchfit(spec = spec, data = sarima_residuals)
+garch_fit
+```
+ 
+Observando os testes estatísticos aplicados automaticamente ao nosso fit de
+$\mathrm{GARCH}(1,1)$, verificamos que os p-values são bastante baixos, 
+pelo que rejeitamos a hipótese nula de não existir correlação significativa
+nos resíduos. Deste modo, devemos concluir que este modelo, como definido, 
+não se prova muito adequado aos nossos dados.
+
+Mudando a distribuição dos erros para uma distribuição t-student
+
+```{r}
+# Specify a GARCH(1, 1) model with t-student distribution
+spec <- ugarchspec(variance.model = list(model = "sGARCH", 
+                                         garchOrder = c(1, 1)),
+                   mean.model = list(armaOrder = c(0, 0)),
+                   distribution.model = "sstd")
+ 
+# Fit the GARCH model to the SARIMA residuals
+garch_fit <- ugarchfit(spec = spec, data = sarima_residuals)
+garch_fit
+
+plot(garch_fit, which = "all")
+```
+
+É possível observar que os problemas de indicados pelo mal ajuste da 
+distribuição dos erros foram resolvido porém os erros ainda continuam 
+correlacionados. 
+
+Isto pode ser devido a que os níveis não estão a conseguir ser modelados
+corretamente, ou seja o modelo $\mathrm{SARIMA}$ não consegue descrever 
+suficientemente bem os dados, para avaliar esta hipote-se analisa-se 
+novamente o gráfico do $\mathrm{ACF}$, no entanto, com uma maior extensão
+
+```{r "Extended ACF for SARIMA residuals"}
+acf(sarima_residuals, 24*10, main = "Extended ACF for the SARIMA residuals")
+```
+
+Analisando o grafo resultante é possível observar que a componente sazonal
+do tipo semanal ainda continua presente, pelo que esta é a razão de o 
+modelo $\mathrm{GARCH}$ dar resíduos correlacionados. 
+
+Com esta conclusão será necessário um método que consiga modelar de forma 
+mais adequada dados com sazonalidades intensivas e numerosas se testar os 
+métodos de alijamento exponencial.
+
+Devemos, no entanto, ainda tentar observar o comportamento deste modelo 
+quando comparado num plot com os dados originais.
+
+Observando a previsão do SARIMA
+
+
+```{r}
+# Forecasting
+forecasted_values <- forecast(sarima_fit, h=length(test_set))
+
+# Creating a dataframe for the forecast with Date/Time and forecasted values
+forecast_df <- data[-(1:train_end), ]
+forecast_df$`Active Energy (kWh)` = forecasted_values$mean
+forecast_df$Type = "Forecast"
+  
+# Extracting the training data from the existing 'data' dataframe
+train_df <- data[1:train_end, ]
+train_df$Type <- "Train"
+
+# Combining the training data and forecast data
+combined_data <- rbind(train_df, forecast_df)
+
+# Plotting
+ggplot(combined_data, aes(x = `Date/Time`, y = `Active Energy (kWh)`, color = Type)) +
+  geom_line() +
+  labs(title = "Active Energy Consumption Over Time with Forecast",
+       x = "Date and Hour",
+       y = "Active Energy (kWh)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Train" = "black", "Forecast" = "blue"))
+
+```
+
+Adicionando os valores reais
+
+```{r}
+# Extracting the training data from the existing 'data' dataframe
+train_df <- data[1:train_end, ]
+train_df$Type <- "Train"
+
+# Extracting the test set data
+test_df <- data[(train_end + 1):length(data$`Date/Time`), ]
+test_df$Type <- "Test"
+
+# Combining the training data, forecast data, and test set data
+combined_data <- rbind(train_df, test_df) # Combine train and test first
+
+# Adding the forecasted values to the combined data frame
+combined_data$Forecast <- c(rep(NA, train_end), forecasted_values$mean)
+
+# Plotting
+ggplot(combined_data, aes(x = `Date/Time`)) +
+  geom_line(aes(y = `Active Energy (kWh)`, color = Type)) +
+  geom_line(aes(y = Forecast), color = "blue") +
+  labs(title = "Active Energy Consumption Over Time with Forecast and Actual",
+       x = "Date and Hour",
+       y = "Energy (kWh)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Train" = "black", "Test" = "red", "Forecast" = "blue")) +
+  theme(legend.title = element_blank())
+
+```
+
+Focando na zona da previsão
+
+```{r}
+# Plotting with x-axis limits set to the test set period
+ggplot(combined_data, aes(x = `Date/Time`)) +
+  geom_line(aes(y = `Active Energy (kWh)`, color = Type)) +
+  geom_line(aes(y = Forecast), color = "blue", linetype = "dashed") +
+  labs(title = "Active Energy Consumption Over Time with Forecast and Actual",
+       x = "Date and Hour",
+       y = "Energy (kWh)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Train" = "black", "Test" = "red", "Forecast" = "blue")) +
+  theme(legend.title = element_blank()) +
+  xlim(as.POSIXct(data$`Date/Time`[train_end + 1]), max(data$`Date/Time`))
+```
+
+Pelo resultado observa-se que o $\mathrm{SARIMA}$ não consegui modelar 
+corretamente a sazonalidade dos dados.
+ 
+### Gráficos do $\mathrm{ACF}$ e $\mathrm{PACF}$
+ 
+Tendo concluído que o modelo anterior possa não ser o mais adequado aos dados, 
+iremos agora tentar determinar um diferente modelo de SARIMA + GARCH a aplicar 
+a estes.
+
+Com este propósito, vamos estudar os gráficos de ACF e PACF de diferentes níveis 
+de diferenciação dos nossos dados.
+ 
+```{r}
+sd_24_data_ts = diff(data_ts, 24)
+ 
+train_end_sd_24 <- floor(length(sd_24_data_ts) * 0.8)
+train_set_sd_24 <- window(sd_24_data_ts, end = c(1, train_end_sd_24))
+test_set_sd_24 <- window(sd_24_data_ts, start = c(1, train_end_sd_24 + 1))
+ 
+plot.ts(train_set_sd_24)
+acf(train_set_sd_24)
+```
+
+
+
+```{r}
+sd_24_1d_data_ts = diff(sd_24_data_ts)
+ 
+train_end_sd_24_1d <- floor(length(sd_24_1d_data_ts) * 0.8)
+train_set_sd_24_1d <- window(sd_24_1d_data_ts, end = c(1, train_end_sd_24_1d))
+test_set_sd_24_1d <- window(sd_24_1d_data_ts, start = c(1, train_end_sd_24_1d + 1))
+ 
+plot.ts(train_set_sd_24_1d)
+acf(train_set_sd_24_1d)
+```
+
+Aparenta que este conjunto de diferenças é suficiente.
+ 
+ 
+Vendo as ACF's deduz-se que seria adequado os dados serém diferenciados na 
+sazonalidade e também normalmente, mesmo assim as componentes de sazonalidades
+não são resolvidas, ainda assim ajustando o modelo 
+$\mathrm{SARIMA}(5,1,1)(2,1,0)_{[24]}$
+ 
+```{r}
+library(astsa)
+ 
+sarima_model = sarima(train_set, 5, 1, 1, 2, 1, 0, 24)
+sarima_model
+```
+ 
+Observa-se que o AIC diminuiu consideravelmente logo o ajuste é melhor
+ 
+```{r}
+sarima_residuals = residuals(sarima_model$fit)
+ 
+spec <- ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(1,1)), 
+                   mean.model = list(armaOrder = c(0,0)),
+                   distribution.model = "norm")
+ 
+fit <- ugarchfit(spec, sarima_residuals)
+fit
+```
+ 
+Mesmo tendo o AIC reduzido drasticamente, continuamos a obter valores muito 
+baixos para os p-values e, portanto, temos que rejeitar a hipótese nula e 
+considerar que existem correlações significativas entre os resíduos deste 
+modelo.
+ 
+É possível observar que mesmo modificando a ordem do $\mathrm{SARIMA}$ o modelo
+continua com problemas com os resíduos dos métodos anteriores, dado que
+não consegue modelar a componente mensal ao mesmo tempo do que a diária,
+consequentemente irá se tentar testar outro método. 
+
+## Exponential smoothing methods (ESM)
+
+Dado que os dados contém sazonalidade irá se utilizar o modelo de Holt-Winters.
+
+```{r}
+# Fit the Holt-Winters model on the training set
+hw_model <- HoltWinters(train_set)
+
+# Forecast using the model
+hw_forecast <- forecast(hw_model, h = length(test_set))
+
+# Plotting the forecast against the actual test set
+plot(hw_forecast)
+lines(test_set, col = 'red')
+
+# Calculating accuracy measures
+accuracy(hw_forecast, test_set)
+
+```
+
+O modelo aparenta modelar bem a direção da volatilidade, no entanto, não
+modela bem a tendência. Ampliando 
+
+```{r}
+# Plotting the forecast against the actual test set with zoom on the test period
+plot(hw_forecast, xlim = range(time(test_set)))
+lines(test_set, col = 'red')
+```
+
+Observando os resultados da previsão, estes aparentam não conseguir seguir as
+diferenças de nível presentes no conjunto de teste, estas diferenças apresentam
+a existência de uma outra componente sazonal, a dos dias da semana onde o
+consumo é mais elevado e o fim de semana onde o consumo é menor. Devido aos
+métodos de alijamento exponential não conseguirem contabilizar mais do que uma
+componente sazonal.
+
+Analisando o gráfico dos resíduos
+
+```{r}
+plot(hw_forecast$residuals)
+```
+
+Não se consegue concluir imediatamente que os resíduos são ruído branco, 
+fazendo então 
+
+```{r}
+# Removing the first 24 obs because the method needs at least one seasonal
+# cycle to initialize
+acf(hw_forecast$residuals[-(1:24)])
+```
+
+É possível observar que os resíduos são correlacionados logo o método não se
+ajusta correctamente aos dados.
+
+É possível então concluir que os métodos e alijamento exponential sofrem do 
+mesmo problema do que os modelos $\mathrm{SARIMA}$, pelo que um outro modelo
+deverá ser aplicado.
+
+### Analizando os ACF extendidos
+
+Tendo em conta os resultados suspeita-se que provavelmente a sazonalidade
+dos dados não esteja totalmente removida, por isso irá se voltar a 
+analizar os ACF's, neste caso extendendo o seu limite
+
+```{r}
+acf(train_set_sd_24, 200)
+acf(train_set_sd_24_1d, 200)
+```
+
+É possível observar com a extensão do limite que existe uma sazonalidade
+adicional, uma sazonalidade semanal.
+
+```{r}
+sd_247_data_ts = diff(sd_24_data_ts, 24*7)
+ 
+train_end_sd_247 <- floor(length(sd_247_data_ts) * 0.8)
+train_set_sd_247 <- window(sd_247_data_ts, end = c(1, train_end_sd_247))
+test_set_sd_247 <- window(sd_247_data_ts, start = c(1, train_end_sd_247 + 1))
+ 
+plot.ts(train_set_sd_247)
+acf(train_set_sd_247, 200)
+pacf(train_set_sd_247,200)
+```
+
+
+
+```{r}
+sd_247_1d_data_ts = diff(sd_247_data_ts)
+ 
+train_end_sd_247_1d <- floor(length(sd_247_1d_data_ts) * 0.8)
+train_set_sd_247_1d <- window(sd_247_1d_data_ts, end = c(1, train_end_sd_247_1d))
+test_set_sd_247_1d <- window(sd_247_1d_data_ts, start = c(1, train_end_sd_247_1d + 1))
+ 
+plot.ts(train_set_sd_247_1d)
+acf(train_set_sd_247_1d, 200)
+pacf(train_set_sd_247_1d,200)
+```
+
+## Prophet
+
+O modelo `Prophet` é do tipo de curve-fitting e contrário dos modelos 
+regressivos aplicados anteriormente, este tipo de modelos tem a 
+possibilidade de poder conter vários tipos de sazonalidade.
+
+O modelo `Prophet` baseia-se num modelo aditivo onde tendências não-lineares 
+são ajustadas com componentes sazonais e feriados $\mathrm{(GAM)}$. O modelo 
+utiliza três componentes principais para fazer previsões:
+
+- Tendência ($g(t)$): Capta a direção geral dos dados ao longo do tempo.
+
+- Sazonalidade ($s(t)$): Modela alterações periódicas, como sazonalidade 
+semanal, mensal ou anual.
+
+- Feriados ($h(t)$): Contabiliza os possíveis impactos de feriados ou eventos.
+
+A representação matemática do modelo é:
+
+$$y(t) = g(t) + s(t) + h(t) + \epsilon_t$$
+
+onde $\epsilon_t$ representa o termo de erro.
+
+O cálculo dos componentes de tendência e sazonalidade do modelo `Prophet` é 
+feita da seguinte forma:
+
+**Componente de Tendência (g(t)):**
+
+O `Prophet` oferece duas opções para modelar a tendência:
+
+- **Modelo de Crescimento Linear por Partes**: Este modelo é útil para dados de 
+séries temporais que exibem mudanças nas taxas de crescimento. A série temporal 
+é dividida em segmentos, e em cada segmento, a tendência é modelada como uma 
+função linear. Os pontos de mudança são automaticamente detectados, permitindo 
+que a tendência ajuste sua inclinação nesses pontos.
+
+- **Modelo de Crescimento Logístico**: Este modelo é usado quando os dados têm 
+uma capacidade máxima, que é o ponto máximo alcançável para a série temporal.
+
+O modelo de tendência linear por partes no `Prophet` é definido como:
+$$ g(t) = (k + a(t)^T \delta) \cdot t + (m + a(t)^T \gamma) $$
+
+onde:
+
+- $g(t)$ é o componente de tendência no tempo $t$,
+- $k$ é a taxa de crescimento inicial,
+- $a(t)$ é um vetor onde cada elemento é a quantidade de tempo desde o 
+correspondente ponto de mudança (0 caso contrário),
+- $\delta$ representa ajustes na taxa de crescimento em cada ponto de mudança,
+- $m$ é o parâmetro de deslocamento,
+- $\gamma$ representa ajustes no deslocamento em cada ponto de mudança.
+
+**Componente de Sazonalidade ($s(t)$):**
+
+O componente de sazonalidade no modelo `Prophet` é calculado usando séries
+de Fourier para capturar mudanças periódicas com flexibilidade. 
+Aqui está uma explicação mais detalhada:
+
+O `Prophet` modela a sazonalidade ajustando uma série de termos seno e
+cosseno aos dados históricos. Isso é feito usando uma soma parcial de 
+Fourier, que é uma versão truncada da série de Fourier que usa um número 
+finito de termos para representar uma função periódica. A fórmula para o 
+componente de sazonalidade é:
+
+$$ s(t) = \sum_{n=1}^{N} \left(a_n \cos\left(\frac{2\pi n t}{P}\right) + b_n \sin\left(\frac{2\pi n t}{P}\right)\right) $$
+
+onde:
+- $s(t)$ é o componente de sazonalidade no tempo \( t \),
+
+- $N$ é o número de termos de Fourier (um \( N \) maior capta padrões sazonais 
+mais detalhados),
+
+- $P$ é o período (por exemplo, 365,25 para sazonalidade anual),
+
+- $a_n$ e $b_n$ são os coeficientes de Fourier que são ajustados aos dados.
+
+A ordem de Fourier determina a rapidez com que a sazonalidade pode mudar.
+Por exemplo, a ordem padrão para a sazonalidade anual é $10$, e para a
+sazonalidade semanal, a ordem é $3$. Ajustando o número de termos de
+Fourier, o `Prophet` pode modelar a sazonalidade com diferentes níveis de 
+granularidade.
+
+**Componente de Erro ($\epsilon_t$):**
+
+O termo de erro capta quaisquer alterações incomuns não acomodadas pelo modelo. 
+Assume-se que seja normalmente distribuído.
+
+A previsão final \( y(t) \) é a soma desses componentes:
+$$ y(t) = g(t) + s(t) + h(t) + \epsilon_t $$
+
+Esta natureza aditiva permite que o `Prophet` lide de forma flexível com
+diferentes tipos de sazonalidade e tendências, tornando-o uma ferramenta 
+indicada para realizar previsões sobre dados com uma junção de várias
+componentes sazonais complexas.
+
+### Aplicação do método com os parâmetros pré-definidas
+
+Aplicando o modelo com os parâmetros pré-definidos.
+
+```{r}
+# Load the Prophet package
+library(prophet)
+
+# Dividing the data into train and test set
+# train_set <- data[1:train_end,]
+# test_set <- data[-(1:train_end),]
+
+# Creating the prophet data in the correct data format
+# 'ds' is the date column and 'y' is the energy consumption column
+prophet_train_data <- data.frame(ds = data$`Date/Time`[1:train_end], y = data$`Active Energy (kWh)`[1:train_end])
+
+prophet_test_data <- data.frame(ds = data$`Date/Time`[-(1:train_end)], y = data$`Active Energy (kWh)`[-(1:train_end)])
+
+# Initialize and fit the Prophet model
+model <- prophet(prophet_train_data)
+
+# Make a future dataframe for predictions
+future <- make_future_dataframe(model, periods = length(test_set), freq = 'hour', include_history = FALSE)
+
+# Predict
+forecast <- predict(model, future)
+
+# Plot the forecast
+plot(model, forecast)
+```
+
+Fazendo o gráfico das componentes 
+
+```{r}
+prophet_plot_components(model, forecast)
+```
+
+É possível observar que o modelo detetou a presença de duas sazonalidades,
+rejeitando a sazonalidade anual devido ao conjunto de dados só ser respectivo
+ao ano de 2023. Comparando a previsão com os valores reais.
+
+```{r}
+# Prepare the forecast dataframe for plotting
+forecast_df <- data.frame(ds = forecast$ds, yhat = forecast$yhat, 
+                          yhat_lower = forecast$yhat_lower, 
+                          yhat_upper = forecast$yhat_upper)
+
+# Combine your test_set and forecast data for comparison
+combined_data <- left_join(prophet_test_data, forecast_df, by = "ds")
+
+# Plotting with ggplot2
+ggplot(combined_data, aes(x = ds)) +
+  geom_line(aes(y = y, colour = "Actual"), size = 1) +
+  geom_line(aes(y = yhat, colour = "Forecast"), size = 1) +
+  geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper), fill = "grey", alpha = 0.5) +
+  labs(title = "Test Set vs Forecast", x = "Date/Time", y = "Active Energy (kWh)") +
+  scale_colour_manual(values = c("Actual" = "blue", "Forecast" = "red")) +
+  theme_minimal()
+
+# Calculate metrics
+accuracy_metrics <- combined_data %>%
+  summarise(
+    MAE = mean(abs(y - yhat), na.rm = TRUE),
+    RMSE = sqrt(mean((y - yhat)^2, na.rm = TRUE)),
+    MAPE = mean(abs((y - yhat) / y), na.rm = TRUE) * 100
+  )
+
+# Print the metrics
+print(accuracy_metrics)
+```
+
+A partir do gráfico da previsão é possível observar que este não segue o
+movimento oscilatório dos dados reais, no entanto consegue detetar que os
+seguintes valores seguiram uma tendencia negativa. Isto poderá adver de não
+considerar uma sazonalidade que é observada durante os anos, devido não
+haver dados com vário anos irá se considerar uma componente de sazonalidade
+quadrimestral.
+
+
+```{r}
+# Initialize and fit the Prophet model
+model <- prophet(prophet_train_data, fit = FALSE)
+
+model_mod <- add_seasonality(model, name = 'quadrimestral', 
+                             period = 30.5*4, fourier.order = 5)
+
+# Fit the model to your historical data
+model_mod <- fit.prophet(model_mod, prophet_train_data)
+
+# Make future predictions
+forecast <- predict(model_mod, future)
+
+# Plot the forecast
+plot(model_mod, forecast)
+```
+
+```{r}
+prophet_plot_components(model_mod, forecast)
+```
+
+```{r}
+# Prepare the forecast dataframe for plotting
+forecast_df <- data.frame(ds = forecast$ds, yhat = forecast$yhat, 
+                          yhat_lower = forecast$yhat_lower, 
+                          yhat_upper = forecast$yhat_upper)
+
+# Combine your test_set and forecast data for comparison
+combined_data <- left_join(prophet_test_data, forecast_df, by = "ds")
+
+# Plotting with ggplot2
+ggplot(combined_data, aes(x = ds)) +
+  geom_line(aes(y = y, colour = "Actual"), size = 1) +
+  geom_line(aes(y = yhat, colour = "Forecast"), size = 1) +
+  geom_ribbon(aes(ymin = yhat_lower, ymax = yhat_upper), fill = "grey", alpha = 0.5) +
+  labs(title = "Test Set vs Forecast", x = "Date/Time", y = "Active Energy (kWh)") +
+  scale_colour_manual(values = c("Actual" = "blue", "Forecast" = "red")) +
+  theme_minimal()
+
+# Calculate metrics
+accuracy_metrics <- combined_data %>%
+  summarise(
+    MAE = mean(abs(y - yhat), na.rm = TRUE),
+    RMSE = sqrt(mean((y - yhat)^2, na.rm = TRUE)),
+    MAPE = mean(abs((y - yhat) / y), na.rm = TRUE) * 100
+  )
+
+# Print the metrics
+print(accuracy_metrics)
+
+```
+
+Os resultados não melhoram muito pelo que provavelmente a tendência em falta
+é observada por ano e devida à falta de dados não será possível ter um modelo
+que se ajuste corretamente ao conjunto de dados.
+
+Mesmo assim tendo em conta como o modelo `Prophet` modela a sazonalidade, irá 
+se tentar modelar as varias componentes de sazonalidade utilizando coeficientes
+de Fourier
+
+## SARIMA com coéficiente de Fourier + GARCH 
+
+Com a aplicação do modelo `Prophet` observou-se que é possível também modelar
+fenómenos de sazonalidade através de coeficientes de Fourier, com isso e 
+através de um pouco de investigação observou-se que era possível ajustar um
+modelo $\mathrm{ARIMA}$ e utilizar os coeficiente de Fourier para modelar a 
+restante sazonalidade.
+
+```{r}
+# Create an msts object with multiple seasonalities: daily and monthly
+train_msts <- msts(train_set, seasonal.periods=c(24, 24*30.44))
+
+# Generate Fourier terms for both seasonalities with K=5 for each
+fourier_terms <- fourier(train_msts, K=c(3, 5))
+
+# Fit the ARIMA model with Fourier terms as external regressors
+fit <- auto.arima(train_set, xreg=fourier_terms, 
+                  seasonal=FALSE, trace = TRUE)
+
+# Evaluate the residuals using ACF and PACF plots
+checkresiduals(fit)
+
+# Forecast future values, including Fourier terms for the forecast periods
+h <- length(test_set) # Forecasting the next 48 hours
+fourier_terms_future <- fourier(train_msts, K=c(3, 5), h=h)
+forecasted_values <- forecast(fit, xreg=fourier_terms_future, h=h)
+
+# Plot the forecast
+autoplot(forecasted_values)
+
+```
+
+```{r}
+# Plot the forecast along with the actual test set values
+autoplot(forecasted_values) +
+  autolayer(test_set, series="Test Set") +
+  ggtitle("Forecast vs Actual Test Set") +
+  xlab("Time") + ylab("Energy Consumption")
+```
+
+Ainda aparenta que uma sazonalidade está a faltar como foi possível
+observar nos antigo métodos. Adiconando a sazonalidade a cada 4 meses
+
+```{r}
+library(Metrics)
+
+# Create an msts object with multiple seasonalities: daily, monthly, and 4-monthly
+train_msts <- msts(train_set, seasonal.periods=c(24, 24*30.44, 24*30.44*4), ts.frequency = 24)
+
+# Generate Fourier terms for all seasonalities
+fourier_terms <- fourier(train_msts, K=c(10, 5, 3))
+
+# Fit the ARIMA(2,1,1) model with Fourier terms as external regressors
+fit <- Arima(train_set, order=c(2,1,1), xreg=fourier_terms)
+
+# Check the residuals
+autoplot(residuals(fit))
+
+# Evaluate the residuals using ACF and PACF plots
+checkresiduals(fit)
+
+# Forecast future values, including Fourier terms for the forecast periods
+h <- length(test_set) # Set the forecast horizon to the length of the test set
+fourier_terms_future <- fourier(train_msts, K=c(10, 5, 3), h=h)
+forecasted_values <- forecast(fit, xreg=fourier_terms_future, h=h)
+
+# Plot the forecast along with the actual test set values
+autoplot(forecasted_values) +
+  autolayer(test_set, series="Test Set") +
+  ggtitle("Forecast vs Actual Test Set") +
+  xlab("Time") + ylab("Energy Consumption")
+
+# Compute error metrics
+mae_value <- mae(test_set, forecasted_values$mean)
+rmse_value <- rmse(test_set, forecasted_values$mean)
+mape_value <- mean(abs((test_set - forecasted_values$mean) / test_set)) * 100
+
+# Print the error metrics
+cat("Mean Absolute Error (MAE):", mae_value, "\n")
+cat("Mean Absolute Percentage Error (MAPE):", mape_value, "\n")
+cat("Root Mean Squared Error (RMSE):", rmse_value, "\n")
+
+```
+
+Infelizmente, os residuos ainda continuam correlacionados, no entanto o modelo
+é o que apresenta melhor ajuste. Ampliando a zona da previsão. 
+
+```{r}
+# Plot the forecast along with the actual test set values with a zoomed-in x-axis
+zoomed_plot <- autoplot(forecasted_values) +
+  autolayer(test_set, series="Test Set") +
+  ggtitle("Zoomed Forecast vs Actual Test Set") +
+  xlab("Time") + ylab("Energy Consumption") +
+  xlim(c(ceiling(length(train_set)/24), ceiling(length(data_ts)/24)))
+
+# Print the zoomed-in plot
+print(zoomed_plot)
+```
+
+
+Provavelmente com um melhor ajuste do número de coéficiente alocados para cada
+sazonalidade tal e qual como no modelo do `Prophet` iria resultar num melhor
+modelo.
+
+Ajustando o modelo GARCH
+
+```{r}
+# Getting the SARIMA model residuals 
+sarima_residuals <- fit$residuals
+arch_test_results <- ArchTest(sarima_residuals)
+
+arch_test_results
+```
+
+```{r}
+# Specify the GARCH(1,1) model without a mean model
+spec <- ugarchspec(variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
+                   mean.model = list(armaOrder = c(0, 0), include.mean = FALSE))
+
+# Fit the GARCH model to the residuals of the ARIMA model
+garch_fit <- ugarchfit(spec = spec, data = residuals(fit))
+
+plot(garch_fit, which = "all")
+
+# Forecast future volatility using the GARCH model
+garch_forecast <- ugarchforecast(garch_fit, n.ahead = length(test_set))
+```
+
+É possível observar que os residuos ainda continuao correlacionados pelo que
+o modelo não irá ser aplicado.

@@ -4,7 +4,7 @@ This project was developed as part of the Time Series curriculum unit,
 taught by Professor Isabel Pereira. The objective was to implement and evaluate
 classical time series models on a real-world dataset. For this, we selected
 hourly energy consumption data from the municipality of
-Aveiro for the year 2023, provided by E-REDES [^1].
+Aveiro for the year 2023, provided by E-REDES[^1].
 
 The models that were initially implemented were SARIMA, GARCH, and
 Holt-Winters (Exponential Smoothing). However, after unsatisfactory results,
@@ -17,16 +17,16 @@ incorrect. Due to the high-frequency sampling, multiple seasonal patterns were
 present—daily (day and night), monthly (weekdays and weekends), and even yearly
 (seasons)—which the previous models could not adequately capture.
 
-Because of this, other methods were explored and the Prophet model was found [^2][^3].
-It confirmed the presence of multiple seasonalities and, in addition,
-improved the modeling.
+Because of this, other methods were explored and the *Prophet* model was
+found[^2][^3]. It corroborated the presence of multiple seasonalities and, in
+addition, improved the modeling.
 
 <insert_image>
 
 Yet, as the curriculum unit focused on classical time series models, we searched
 for a way to incorporate multiple seasonalities into those models. We found that
 it was possible to use exogenous variables to explain the volatility, which we
-chose to model using Fourier series [^4]. This approach yielded the best results.
+chose to model using Fourier series[^4]. This approach yielded the best results.
 
 <insert_image>
 
@@ -35,16 +35,16 @@ written in **Portuguese**.
 
 ## Data sources
 
-- [Energy consumption on the Aveiro municipality for the year 2023](https://e-redes.opendatasoft.com/explore/dataset/consumos_horario_codigo_postal/table/?sort=datahora&refine.codigo_postal=3810&refine.datahora=2023&dataChart=eyJxdWVyaWVzIjpbeyJjaGFydHMiOlt7InR5cGUiOiJsaW5lIiwiZnVuYyI6IlNVTSIsInlBeGlzIjoiY29uc3VtbyIsInNjaWVudGlmaWNEaXNwbGF5Ijp0cnVlLCJjb2xvciI6IiNGRkRDMDAifV0sInhBeGlzIjoiZGF0YWhvcmEiLCJtYXhwb2ludHMiOm51bGwsInRpbWVzY2FsZSI6ImhvdXIiLCJzb3J0IjoiIiwiY29uZmlnIjp7ImRhdGFzZXQiOiJjb25zdW1vc19ob3JhcmlvX2NvZGlnb19wb3N0YWwiLCJvcHRpb25zIjp7InNvcnQiOiJkYXRhaG9yYSIsInJlZmluZS5jb2RpZ29fcG9zdGFsIjoiMzgxMCIsInJlZmluZS5kYXRhaG9yYSI6IjIwMjMifX19XSwiZGlzcGxheUxlZ2VuZCI6dHJ1ZSwiYWxpZ25Nb250aCI6dHJ1ZSwidGltZXNjYWxlIjoiIn0%3D)
+- [Energy consumption in the Aveiro municipality for the year 2023](https://e-redes.opendatasoft.com/explore/dataset/consumos_horario_codigo_postal/table/?sort=datahora&refine.codigo_postal=3810&refine.datahora=2023&dataChart=eyJxdWVyaWVzIjpbeyJjaGFydHMiOlt7InR5cGUiOiJsaW5lIiwiZnVuYyI6IlNVTSIsInlBeGlzIjoiY29uc3VtbyIsInNjaWVudGlmaWNEaXNwbGF5Ijp0cnVlLCJjb2xvciI6IiNGRkRDMDAifV0sInhBeGlzIjoiZGF0YWhvcmEiLCJtYXhwb2ludHMiOm51bGwsInRpbWVzY2FsZSI6ImhvdXIiLCJzb3J0IjoiIiwiY29uZmlnIjp7ImRhdGFzZXQiOiJjb25zdW1vc19ob3JhcmlvX2NvZGlnb19wb3N0YWwiLCJvcHRpb25zIjp7InNvcnQiOiJkYXRhaG9yYSIsInJlZmluZS5jb2RpZ29fcG9zdGFsIjoiMzgxMCIsInJlZmluZS5kYXRhaG9yYSI6IjIwMjMifX19XSwiZGlzcGxheUxlZ2VuZCI6dHJ1ZSwiYWxpZ25Nb250aCI6dHJ1ZSwidGltZXNjYWxlIjoiIn0%3D)
 
-Export the selected records as Excel `.xlsx` format 
+Export the selected records as Excel `.xlsx` format.
 
 ## References
 
-[^1]: E-REDES – Distribuição de Eletricidade. (n.d.). *E-REDES Open Data Portal*. <https://e-redes.opendatasoft.com/pages/homepage/>
+[^1]: E-REDES – Distribuição de Eletricidade. (n.d.). *E-REDES Open Data Portal*. https://e-redes.opendatasoft.com/pages/homepage/
 
-[^2]: PBR Notes on DS. (2022, outubro 29). DS Projects: 4c Hourly Energy Data Time Series Analysis [Video]. YouTube. <https://youtube.com/watch?v=m9nzK1SNY3I>
+[^2]: PBR Notes on DS. (2022, October 29). *DS Projects: 4c Hourly Energy Data Time Series Analysis* [Video]. YouTube. https://www.youtube.com/watch?v=m9nzK1SNY3I
 
-[^3]: Taylor SJ, Letham B. 2017. Forecasting at scale. PeerJ Preprints 5:e3190v2 <https://doi.org/10.7287/peerj.preprints.3190v2>
+[^3]: Taylor, S. J., & Letham, B. (2017). Forecasting at scale. *PeerJ Preprints*, 5, e3190v2. https://doi.org/10.7287/peerj.preprints.3190v2
 
-[^4]: Hyndman, R.J., & Athanasopoulos, G. (2021) Forecasting: principles and practice, 3rd edition, OTexts: Melbourne, Australia. [OTexts.com/fpp3](https://otexts.com/fpp3/). Accessed on 9/06/2024.
+[^4]: Hyndman, R. J., & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice* (3rd ed.). OTexts. https://otexts.com/fpp3/

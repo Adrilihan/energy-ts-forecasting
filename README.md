@@ -8,9 +8,6 @@ Aveiro for the year 2023, provided by E-REDES[^1].
 
 The models that were initially implemented were SARIMA, GARCH, and
 Holt-Winters (Exponential Smoothing). However, after unsatisfactory results,
-
-<insert_image>
-
 it was concluded that something was missing from our analysis. Later on, we
 realized that the assumption of only one seasonality in the data was
 incorrect. Due to the high-frequency sampling, multiple seasonal patterns were
@@ -21,14 +18,26 @@ Because of this, other methods were explored and the *Prophet* model was
 found[^2][^3]. It corroborated the presence of multiple seasonalities and, in
 addition, improved the modeling.
 
-<insert_image>
+<p align="center">
+  <img 
+    style="width: 50%;
+           height: 50%;"
+    src="https://github.com/user-attachments/assets/909b0524-72da-466f-aa9a-b0e7e15e970a" 
+    alt="Prophet multiple seasonality decomposition.">
+</p>
 
 Yet, as the curriculum unit focused on classical time series models, we searched
 for a way to incorporate multiple seasonalities into those models. We found that
 it was possible to use exogenous variables to explain the volatility, which we
 chose to model using Fourier series[^4]. This approach yielded the best results.
 
-<insert_image>
+<p align="center">
+  <img 
+    style="width: 50%;
+           height: 50%;"
+    src="https://github.com/user-attachments/assets/4e126e78-058a-4cea-85d5-fdf8562ba68e" 
+    alt="ARIMA with Fourier regressors forecast.">
+</p>
 
 The full RMarkdown file is `aveiro-consumo-energia.Rmd`, but note that it is
 written in **Portuguese**.
@@ -46,5 +55,6 @@ Export the selected records as Excel `.xlsx` format.
 [^2]: PBR Notes on DS. (2022, October 29). *DS Projects: 4c Hourly Energy Data Time Series Analysis* [Video]. YouTube. https://www.youtube.com/watch?v=m9nzK1SNY3I
 
 [^3]: Taylor, S. J., & Letham, B. (2017). Forecasting at scale. *PeerJ Preprints*, 5, e3190v2. https://doi.org/10.7287/peerj.preprints.3190v2
+
 
 [^4]: Hyndman, R. J., & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice* (3rd ed.). OTexts. https://otexts.com/fpp3/

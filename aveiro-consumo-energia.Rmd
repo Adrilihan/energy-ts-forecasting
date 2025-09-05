@@ -881,10 +881,19 @@ fourier_terms_future <- fourier(train_msts, K=c(10, 5, 3), h=h)
 forecasted_values <- forecast(fit, xreg=fourier_terms_future, h=h)
 
 # Plot the forecast along with the actual test set values
+# Plot the forecast along with the actual test set values
+clrs <- c("blueviolet", "blue", "darkgoldenrod4", "red")
+
 autoplot(forecasted_values) +
-  autolayer(test_set, series="Test Set") +
-  ggtitle("Forecast vs Actual Test Set") +
-  xlab("Time") + ylab("Energy Consumption")
+  autolayer(forecasted_values$mean, series="Forecast") +
+  autolayer(fitted(fit), series='Fitted') + 
+  autolayer(train_set, series = 'Train') +
+  autolayer(test_set, series='Test') +
+  xlab("Observation [days]") +
+  ylab("Energy consumption [kWh]") +
+  guides(colour=guide_legend(title="Data series"), 
+         fill=guide_legend(title="Prediction interval")) +
+  scale_color_manual(values=clrs)
 
 # Compute error metrics
 mae_value <- mae(test_set, forecasted_values$mean)

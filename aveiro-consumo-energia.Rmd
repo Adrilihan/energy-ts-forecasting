@@ -14,7 +14,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r "Reading the data"}
 library(readxl)
 
-raw_data = read_excel("consumos_horario_codigo_postal.xlsx")
+data_folder <- "data/raw/"
+data_path <- paste0(data_folder, "consumos_3810_2023.xlsx")
+raw_data = read_excel(data_path)
 
 head(raw_data)
 ```

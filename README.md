@@ -42,6 +42,45 @@ chose to model using Fourier series[^4]. This approach yielded the best results.
 The full RMarkdown file is `aveiro-consumo-energia.Rmd`, but note that it is
 written in **Portuguese**.
 
+## Usage
+
+This project uses:
+
+- **rig** to manage the R version
+- **make** to automate set-up and data preparation
+- **RStudio** as the supported IDE (although any IDE can be used)
+
+> [!WARNING]
+> The R version must be exactly `4.5.1`. Using a different version may break
+> reproducibility.
+
+To set up the project for the first time, run:
+
+```bash
+make create_environment
+```
+
+This installs the required R version using `rig` and restores the environment
+using `renv`.
+
+To start working on the project, launch RStudio with the correct R version:
+
+```bash
+rig rstudio 4.5.1 energy-ts-forecasting.Rproj
+```
+> [!NOTE]
+> This command must be run every time you want to start a new session of the
+> project.
+
+Once inside the project, you can fetch the raw dataset by running:
+
+```bash
+make data
+```
+
+This executes the script `data/make_dataset.R` to download the raw data. With
+the set-up the main notebook file `aveiro-consumo-energia.Rmd` may be run.
+
 ## Data sources
 
 - [Energy consumption in the Aveiro municipality for the year 2023](https://e-redes.opendatasoft.com/explore/dataset/consumos_horario_codigo_postal/table/?sort=datahora&refine.codigo_postal=3810&refine.datahora=2023&dataChart=eyJxdWVyaWVzIjpbeyJjaGFydHMiOlt7InR5cGUiOiJsaW5lIiwiZnVuYyI6IlNVTSIsInlBeGlzIjoiY29uc3VtbyIsInNjaWVudGlmaWNEaXNwbGF5Ijp0cnVlLCJjb2xvciI6IiNGRkRDMDAifV0sInhBeGlzIjoiZGF0YWhvcmEiLCJtYXhwb2ludHMiOm51bGwsInRpbWVzY2FsZSI6ImhvdXIiLCJzb3J0IjoiIiwiY29uZmlnIjp7ImRhdGFzZXQiOiJjb25zdW1vc19ob3JhcmlvX2NvZGlnb19wb3N0YWwiLCJvcHRpb25zIjp7InNvcnQiOiJkYXRhaG9yYSIsInJlZmluZS5jb2RpZ29fcG9zdGFsIjoiMzgxMCIsInJlZmluZS5kYXRhaG9yYSI6IjIwMjMifX19XSwiZGlzcGxheUxlZ2VuZCI6dHJ1ZSwiYWxpZ25Nb250aCI6dHJ1ZSwidGltZXNjYWxlIjoiIn0%3D)

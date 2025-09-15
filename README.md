@@ -66,7 +66,7 @@ using `renv`.
 To start working on the project, launch RStudio with the correct R version:
 
 ```bash
-rig rstudio 4.5.1 energy-ts-forecasting.Rproj
+make rstudio
 ```
 > [!NOTE]
 > This command must be run every time you want to start a new session of the

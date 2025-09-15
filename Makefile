@@ -36,3 +36,8 @@ create_environment:
 .PHONY: data
 data: requirements
 	$(R_INTERPRETER) -f data/make_dataset.R
+	
+## Start RStudio session with appropriate R version and project set-up
+.PHONY: rstudio
+rstudio:
+	rig rstudio $(R_VERSION) $(PROJECT_NAME).Rproj

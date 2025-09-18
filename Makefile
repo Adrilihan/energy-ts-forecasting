@@ -11,7 +11,7 @@ R_INTERPRETER = rig run -r $(R_VERSION)
 ################################################################################
 
 
-# Install R dependencies using rlock
+## Install R dependencies using rlock
 .PHONY: requirements
 requirements:
 	$(R_INTERPRETER) -e "renv::restore(clean = TRUE)"
@@ -27,9 +27,9 @@ create_environment:
 	@echo "rig rstudio $(R_VERSION) $(PROJECT_NAME).Rproj"
 
 
-#################################################################################
-# PROJECT RULES                                                                 #
-#################################################################################
+################################################################################
+# PROJECT RULES                                                                #
+################################################################################
 
 
 ## Make dataset
@@ -41,3 +41,24 @@ data: requirements
 .PHONY: rstudio
 rstudio:
 	rig rstudio $(R_VERSION) $(PROJECT_NAME).Rproj
+
+
+################################################################################
+# Self Documenting Commands                                                    #
+################################################################################
+
+.DEFAULT_GOAL := help
+
+define PRINT_HELP_RSCRIPT
+library(stringr); \
+file_text <- readLines("Makefile"); \
+file_text <- paste(file_text, collapse = "\n"); \
+pattern <- "\n## (.*)\n[\\s\\S]+?\n([a-zA-Z_-]+):"; \
+matches <- str_match_all(file_text, pattern)[[1]]; \
+results <- paste(sprintf("%-25s %s", matches[,3], matches[,2]), collapse = "\n"); \
+cat("Available rules:", results, sep = "\n")
+endef
+export PRINT_HELP_RSCRIPT
+
+help:
+	@$(R_INTERPRETER) -e '${PRINT_HELP_RSCRIPT}'
